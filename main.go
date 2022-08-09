@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/garyburd/redigo/redis"
 	"github.com/spf13/viper"
-	//_ "github.com/taosdata/driver-go/v2/taosSql"
+	_ "github.com/taosdata/driver-go/v2/taosSql"
 	"log"
 	"math/big"
 	"runtime"
