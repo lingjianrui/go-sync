@@ -153,15 +153,6 @@ func GetContractInfo(contractAddress string, client *ethclient.Client) (string,s
 
 //ParseTransactionBaseInfo 解析交易基本信息
 func ParseTransactionBaseInfo(tx *types.Transaction, st *SyncTransaction, isMager bool) *SyncTransaction {
-	//fmt.Printf("Hash: %s\n", tx.Hash().Hex())
-	//fmt.Printf("ChainId: %d\n", tx.ChainId())
-	//fmt.Printf("Value: %s\n", tx.Value().String())
-	//fmt.Printf("From: %s\n", GetTransactionMessage(tx).From().Hex())
-	//fmt.Printf("To: %s\n", tx.To().Hex())
-	//fmt.Printf("Gas: %d\n", tx.Gas())
-	//fmt.Printf("Gas Price: %d\n", tx.GasPrice().Uint64())
-	//fmt.Printf("Nonce: %d\n", tx.Nonce())
-	//fmt.Printf("Transaction Data in hex: %s\n", hex.EncodeToString(tx.Data()))
 	st.Hash = tx.Hash().Hex()
 	st.From = GetTransactionMessage(tx).From().Hex()
 	st.Gas = strconv.Itoa(int(tx.Gas()))
@@ -269,7 +260,7 @@ func InitDb() {
 }
 
 //LoadConfig 加载配置
-func LoadConfig(client *ethclient.Client) {
+func LoadConfig() *ethclient.Client{
 	//加载配置文件
 	Config := viper.New()
 	Config.SetConfigName("config")
@@ -292,7 +283,10 @@ func LoadConfig(client *ethclient.Client) {
 	tableName = Config.GetString("table_name")
 	contractRepo = Config.GetString("contract_repo")
 	existHashListName = Config.GetString("exist_hash_list_name")
-	//blockNumberCache = uint64(Config.GetInt64("from_height"))\
+	client, err := ethclient.Dial(providerUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
 	blockNumberCache ,_= client.BlockNumber(context.Background())
 	tag = Config.GetString("tag")
 	jobThread := Config.GetInt64("job_thread_control")
@@ -303,6 +297,7 @@ func LoadConfig(client *ethclient.Client) {
 	transactionThreadControl = make(chan int, transactionThread)
 	createJobDelay = Config.GetInt64("create_job_delay")
 	transactionChannelName = Config.GetString("transaction_channel_name")
+	return client
 }
 
 //ProcessBlock 处理区块chan
@@ -394,13 +389,6 @@ func InsertData(tableName string, st *SyncTransaction) {
 	defer conn.Close()
 	//获取当前13位时间戳
 	now := time.Now().UnixNano()
-	//查询Hash是否存在
-	//queryExist := fmt.Sprintf("select hash from %s where hash = \"%s\"", tableName, st.Hash)
-	//r, e := conn.Query(queryExist)
-	//if e != nil {
-	//	log.Println(e)
-	//}
-	//defer r.Close()
 	//查询redis中是否存在
 	rc := RedisPool.Get()
 	defer rc.Close()
@@ -437,13 +425,8 @@ func InsertData(tableName string, st *SyncTransaction) {
 
 func main() {
 	runtime.GOMAXPROCS(50)
-	client, err := ethclient.Dial(providerUrl)
-	LoadConfig(client)
+	client := LoadConfig()
 	InitDb()
-	
-	if err != nil {
-		log.Fatal(err)
-	}
 	wg := &sync.WaitGroup{}
 	wg.Add(4)
 	//每30秒钟运行一次CreateJob
